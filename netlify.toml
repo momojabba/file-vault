@@ -1,0 +1,11 @@
+[build]
+  publish = "."
+
+[functions]
+  directory = "netlify/functions"
+
+# Any other path (e.g. /my-private-folder) shows the app, which reads the path as the folder name.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200

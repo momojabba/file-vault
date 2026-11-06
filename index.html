@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>File Vault</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@500;700&family=Source+Sans+3:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    box-sizing: border-box;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    --bg: #e9edf1; --panel: #ffffff; --ink: #17212b; --muted: #5d6b78; --line: #cdd5dc;
+    --accent: #14606b; --accent-soft: #dcecee; --danger: #a3341f;
+    --display: "Bricolage Grotesque", "Trebuchet MS", sans-serif;
+    --body: "Source Sans 3", "Segoe UI", system-ui, sans-serif;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #10161c; --panel: #18212a; --ink: #e6ecf1; --muted: #93a2b0; --line: #2b3946;
+      --accent: #5fb7c2; --accent-soft: #1b3338; --danger: #ff9b87; color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #10161c; --panel: #18212a; --ink: #e6ecf1; --muted: #93a2b0; --line: #2b3946;
+    --accent: #5fb7c2; --accent-soft: #1b3338; --danger: #ff9b87; color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html { background: var(--bg); scroll-padding-top: env(safe-area-inset-top, 0px); }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 17px/1.5 var(--body); }
+  main { max-width: 760px; margin: 0 auto; padding: 40px 20px 64px; }
+  h1 { font: 700 2.4rem/1.1 var(--display); margin: 0 0 6px; letter-spacing: -0.01em; }
+  .lede { margin: 0 0 28px; color: var(--muted); }
+  .note { margin: 0 0 24px; font-size: .9rem; color: var(--muted); }
+
+  .drop {
+    display: block; text-align: center; cursor: pointer; position: relative;
+    background: var(--panel); border: 2px dashed var(--line); border-radius: 14px;
+    padding: 34px 20px; transition: border-color .15s, background .15s;
+  }
+  .drop:hover, .drop.over { border-color: var(--accent); background: var(--accent-soft); }
+  .drop:focus-within { outline: 3px solid var(--accent); outline-offset: 2px; }
+  .drop strong { font: 700 1.2rem var(--display); display: block; margin-bottom: 2px; }
+  .drop span { color: var(--muted); font-size: .95rem; }
+  .drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+
+  #status { min-height: 1.5em; margin: 12px 2px 0; font-size: .95rem; color: var(--muted); }
+  #status.error { color: var(--danger); }
+
+  .list-head { display: flex; justify-content: space-between; align-items: baseline; margin: 32px 0 10px; padding: 0 2px; }
+  .list-head h2 { font: 700 1.3rem var(--display); margin: 0; }
+  .list-head span { color: var(--muted); font-size: .95rem; }
+
+  ul { list-style: none; margin: 0; padding: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+  li { display: flex; align-items: stretch; }
+  li + li { border-top: 1px solid var(--line); }
+  .open {
+    flex: 1; min-width: 0; display: flex; justify-content: space-between; gap: 16px; align-items: center;
+    padding: 14px 18px; background: none; border: 0; color: inherit; font: inherit; text-align: left; cursor: pointer;
+  }
+  .open:hover { background: var(--accent-soft); }
+  .open:focus-visible, .rm:focus-visible { outline: 3px solid var(--accent); outline-offset: -3px; }
+  .name { font-weight: 600; overflow-wrap: anywhere; }
+  .meta { color: var(--muted); font-size: .88rem; white-space: nowrap; text-align: right; }
+  .rm { background: none; border: 0; border-left: 1px solid var(--line); padding: 0 16px; color: var(--muted); font: inherit; font-size: .9rem; cursor: pointer; }
+  .rm:hover { color: var(--danger); }
+  .empty { padding: 26px 18px; color: var(--muted); text-align: center; display: block; }
+
+  .opts { margin: 14px 2px 0; display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+  .opts label { display: flex; gap: 8px; align-items: center; cursor: pointer; font-weight: 600; }
+  .opts input[type=checkbox] { width: 18px; height: 18px; accent-color: var(--accent); }
+  .opts .note { flex-basis: 100%; margin: 0; }
+  .pw { flex: 1; min-width: 200px; padding: 9px 12px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); font: inherit; }
+  .pw:focus-visible { outline: 3px solid var(--accent); outline-offset: 1px; }
+  .pw[hidden], .note[hidden] { display: none; }
+  .tag { display: inline-block; margin-left: 8px; padding: 1px 8px; border-radius: 99px; background: var(--accent-soft); color: var(--accent); font-size: .75rem; font-weight: 600; vertical-align: middle; }
+  dialog { border: 1px solid var(--line); border-radius: 14px; background: var(--panel); color: var(--ink); padding: 22px; width: min(92vw, 380px); }
+  dialog::backdrop { background: rgba(0, 0, 0, .45); }
+  dialog h3 { font: 700 1.15rem var(--display); margin: 0 0 4px; }
+  dialog p { margin: 0 0 12px; color: var(--muted); font-size: .92rem; overflow-wrap: anywhere; }
+  dialog .pw { width: 100%; }
+  .err { color: var(--danger); font-size: .9rem; min-height: 1.4em; margin: 6px 0 0; }
+  .btns { display: flex; justify-content: flex-end; gap: 8px; margin-top: 10px; }
+  .btn { padding: 9px 16px; border-radius: 8px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: inherit; font-weight: 600; cursor: pointer; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--panel); }
+  .btn:disabled { opacity: .6; cursor: default; }
+  .btn:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+
+  [hidden] { display: none !important; }
+  .folderbar { display: flex; flex-wrap: wrap; gap: 8px 10px; align-items: center; margin: 0 0 22px; }
+  .flabel { font: 700 1.05rem var(--display); }
+  .folderbar a { color: var(--accent); font-weight: 600; }
+  .fnote { flex-basis: 100%; margin: 0; color: var(--muted); font-size: .9rem; }
+  .folderbar .pw { flex: 1 1 180px; min-width: 150px; }
+
+  @media (max-width: 520px) {
+    .open { flex-direction: column; align-items: flex-start; gap: 2px; }
+    .meta { text-align: left; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <h1>File Vault</h1>
+  <p class="lede">Upload any file to store it. Select a stored file to open it in a new window. Types a browser can&rsquo;t display are downloaded instead.</p>
+
+  <div class="folderbar">
+    <span class="flabel" id="folderLabel"></span>
+    <a id="rootLink" href="/" hidden>Main vault</a>
+    <p class="fnote" id="folderNote"></p>
+    <input type="text" id="folderIn" class="pw" placeholder="Open a folder by name" autocomplete="off" aria-label="Folder name">
+    <button type="button" class="btn" id="folderGo">Open</button>
+    <button type="button" class="btn" id="folderNew">New private folder</button>
+  </div>
+
+  <label class="drop" id="drop">
+    <strong>Choose files</strong>
+    <span>or drop them here (any file type, up to 5 MB each)</span>
+    <input type="file" id="file" multiple>
+  </label>
+  <div class="opts" id="opts">
+    <label><input type="checkbox" id="encrypt"> Encrypt with a password</label>
+    <input type="password" id="pw" class="pw" placeholder="Password" autocomplete="new-password" aria-label="Encryption password" hidden>
+    <p class="note" id="encnote" hidden>Encryption happens in your browser. If you forget the password the file cannot be recovered. The file name, size and upload time stay visible in the list.</p>
+  </div>
+  <div id="status" role="status" aria-live="polite"></div>
+
+  <div class="list-head" id="listHead">
+    <h2>Uploaded files</h2>
+    <span id="count"></span>
+  </div>
+  <ul id="list"><li class="empty">Loading…</li></ul>
+</main>
+
+<dialog id="dlg" aria-labelledby="dlgTitle">
+  <h3 id="dlgTitle">Enter password</h3>
+  <p id="dlgName"></p>
+  <input type="password" id="dlgPw" class="pw" autocomplete="current-password" aria-label="Password">
+  <div class="err" id="dlgErr" role="alert"></div>
+  <div class="btns">
+    <button type="button" class="btn" id="dlgCancel">Cancel</button>
+    <button type="button" class="btn primary" id="dlgOk">Open</button>
+  </div>
+</dialog>
+
+<script>
+  const $ = (id) => document.getElementById(id);
+  const drop = $("drop"), input = $("file"), statusEl = $("status"), list = $("list"), count = $("count");
+  const MAX_BYTES = 5 * 1024 * 1024;
+
+  // ---- UI helpers ----
+  // ---- Encryption: AES-GCM, key derived from the password with PBKDF2, all in the browser ----
+  const encBox = $("encrypt"), pwInput = $("pw"), encNote = $("encnote");
+  encBox.addEventListener("change", () => {
+    pwInput.hidden = encNote.hidden = !encBox.checked;
+    if (encBox.checked) pwInput.focus();
+  });
+
+  const te = new TextEncoder(), td = new TextDecoder();
+  async function deriveKey(password, salt) {
+    const base = await crypto.subtle.importKey("raw", te.encode(password), "PBKDF2", false, ["deriveKey"]);
+    return crypto.subtle.deriveKey(
+      { name: "PBKDF2", salt, iterations: 250000, hash: "SHA-256" },
+      base, { name: "AES-GCM", length: 256 }, false, ["encrypt", "decrypt"]
+    );
+  }
+  // Packed format: 16-byte salt | 12-byte IV | AES-GCM ciphertext
+  async function encryptBytes(bytes, password) {
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const key = await deriveKey(password, salt);
+    const ct = new Uint8Array(await crypto.subtle.encrypt({ name: "AES-GCM", iv }, key, bytes));
+    const out = new Uint8Array(28 + ct.length);
+    out.set(salt, 0); out.set(iv, 16); out.set(ct, 28);
+    return out;
+  }
+  async function decryptBytes(packed, password) {
+    const p = new Uint8Array(packed);
+    const key = await deriveKey(password, p.slice(0, 16));
+    return crypto.subtle.decrypt({ name: "AES-GCM", iv: p.slice(16, 28) }, key, p.slice(28));
+  }
+
+  // How each file type is handled: "sandbox" = run as a page inside a sandboxed frame,
+  // "view" = safe for the browser to display, anything else is downloaded.
+  const TYPES = {};
+  const addTypes = (mime, mode, exts) => exts.split(" ").forEach((e) => (TYPES[e] = [mime, mode]));
+  addTypes("text/html", "sandbox", "html htm xhtml");
+  addTypes("image/svg+xml", "sandbox", "svg");
+  addTypes("application/pdf", "view", "pdf");
+  addTypes("image/png", "view", "png");
+  addTypes("image/jpeg", "view", "jpg jpeg");
+  addTypes("image/gif", "view", "gif");
+  addTypes("image/webp", "view", "webp");
+  addTypes("image/avif", "view", "avif");
+  addTypes("image/bmp", "view", "bmp");
+  addTypes("image/x-icon", "view", "ico");
+  addTypes("text/plain;charset=utf-8", "view", "txt md csv tsv log json xml css js mjs ts yaml yml ini");
+  addTypes("audio/mpeg", "view", "mp3");
+  addTypes("audio/wav", "view", "wav");
+  addTypes("audio/ogg", "view", "ogg");
+  addTypes("audio/mp4", "view", "m4a");
+  addTypes("video/mp4", "view", "mp4");
+  addTypes("video/webm", "view", "webm");
+  const kindOf = (name) => TYPES[(name.split(".").pop() || "").toLowerCase()] || ["application/octet-stream", "download"];
+
+  function saveUrl(name, url) {
+    const a = document.createElement("a");
+    a.href = url; a.download = name;
+    document.body.append(a); a.click(); a.remove();
+  }
+  // Shows bytes in the already-opened window `w`, or downloads them for types that cannot be displayed.
+  function showBytes(name, bytes, w) {
+    const [mime, mode] = kindOf(name);
+    if (mode === "download") {
+      const url = URL.createObjectURL(new Blob([bytes], { type: "application/octet-stream" }));
+      saveUrl(name, url);
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+      return;
+    }
+    const blob = mode === "sandbox"
+      ? new Blob([wrapperDoc(name, td.decode(bytes))], { type: "text/html" })
+      : new Blob([bytes], { type: mime });
+    const url = URL.createObjectURL(blob);
+    w.location.href = url;
+    setTimeout(() => URL.revokeObjectURL(url), 120000);
+  }
+
+  // Opened pages run inside a sandboxed iframe, so their scripts cannot reach this site.
+  function wrapperDoc(name, html) {
+    const safe = html.replace(/&/g, "&amp;").replace(/"/g, "&quot;");
+    const title = name.replace(/&/g, "&amp;").replace(/</g, "&lt;");
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"><title>${title}</title><style>html,body{margin:0;height:100%}iframe{border:0;width:100%;height:100%;display:block}</style></head><body><iframe sandbox="allow-scripts allow-forms allow-popups allow-modals" srcdoc="${safe}"></iframe></body></html>`;
+  }
+
+  // Shows the password dialog. `attempt(password)` must return the result or throw; the
+  // dialog stays open on a wrong password and resolves null if cancelled.
+  function unlockWithDialog(name, attempt) {
+    return new Promise((resolve) => {
+      const dlg = $("dlg"), field = $("dlgPw"), err = $("dlgErr"), ok = $("dlgOk"), cancel = $("dlgCancel");
+      $("dlgName").textContent = name;
+      field.value = ""; err.textContent = ""; ok.disabled = false;
+      let busy = false;
+      function cleanup() {
+        ok.removeEventListener("click", submit);
+        cancel.removeEventListener("click", onCancel);
+        field.removeEventListener("keydown", onKey);
+        dlg.removeEventListener("cancel", onCancel);
+      }
+      function done(value) { cleanup(); if (dlg.open) dlg.close(); resolve(value); }
+      function onCancel() { done(null); }
+      function onKey(e) { if (e.key === "Enter") { e.preventDefault(); submit(); } }
+      async function submit() {
+        if (busy || !field.value) return;
+        busy = true; ok.disabled = true; err.textContent = "";
+        try { done(await attempt(field.value)); }
+        catch {
+          err.textContent = "Wrong password, or the file is damaged.";
+          busy = false; ok.disabled = false; field.select();
+        }
+      }
+      ok.addEventListener("click", submit);
+      cancel.addEventListener("click", onCancel);
+      field.addEventListener("keydown", onKey);
+      dlg.addEventListener("cancel", onCancel);
+      dlg.showModal();
+      field.focus();
+    });
+  }
+
+  function setStatus(msg, isError = false) {
+    statusEl.textContent = msg;
+    statusEl.className = isError ? "error" : "";
+  }
+  function fmtSize(b) {
+    return b < 1024 ? b + " B" : b < 1048576 ? (b / 1024).toFixed(1) + " KB" : (b / 1048576).toFixed(1) + " MB";
+  }
+  function fmtDate(iso) {
+    return iso ? new Date(iso).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" }) : "";
+  }
+  function emptyRow(text) {
+    const li = document.createElement("li");
+    li.className = "empty";
+    li.textContent = text;
+    return li;
+  }
+
+  async function openPage(item) {
+    const isDownload = kindOf(item.name)[1] === "download";
+    const url = "/view/" + encodeURIComponent(folder) + "/" + encodeURIComponent(item.id);
+    if (!item.encrypted) {
+      if (isDownload) saveUrl(item.name, url);
+      else window.open(url, "_blank", "noopener");
+      return;
+    }
+    let packed;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error();
+      packed = await res.arrayBuffer();
+    } catch {
+      setStatus("That file could not be loaded.", true);
+      return;
+    }
+    // Ask for the password first, in this window, so the prompt is what the person sees.
+    const bytes = await unlockWithDialog(item.name, (pw) => decryptBytes(packed, pw));
+    if (bytes === null) return;
+    // Open the new window only now, right after the password click, so pop-up blockers still allow it.
+    const w = isDownload ? null : window.open("", "_blank");
+    if (!isDownload && !w) { setStatus("The new window was blocked. Allow pop-ups for this page and try again.", true); return; }
+    showBytes(item.name, bytes, w);
+  }
+
+  async function renderList() {
+    let items;
+    try {
+      const res = await fetch("/api/list?folder=" + encodeURIComponent(folder));
+      if (!res.ok) throw new Error();
+      items = await res.json();
+    } catch { list.replaceChildren(emptyRow("The list could not be loaded. Refresh to try again.")); return; }
+
+    items.sort((a, b) => String(b.uploadedAt).localeCompare(String(a.uploadedAt)));
+    list.replaceChildren();
+    count.textContent = items.length ? items.length + (items.length === 1 ? " file" : " files") : "";
+    if (!items.length) { list.append(emptyRow("Nothing here yet. Upload a file to get started.")); return; }
+
+    for (const item of items) {
+      const li = document.createElement("li");
+      const open = document.createElement("button");
+      open.type = "button";
+      open.className = "open";
+      open.addEventListener("click", () => openPage(item));
+      const name = document.createElement("span");
+      name.className = "name";
+      name.textContent = item.name;
+      if (item.encrypted) {
+        const tag = document.createElement("span");
+        tag.className = "tag";
+        tag.textContent = "Encrypted";
+        name.append(tag);
+      }
+      const meta = document.createElement("span");
+      meta.className = "meta";
+      meta.textContent = [fmtSize(item.size), fmtDate(item.uploadedAt)].filter(Boolean).join("  |  ");
+      open.append(name, meta);
+
+      li.append(open);
+      list.append(li);
+    }
+  }
+
+  async function uploadFiles(files) {
+    const picked = [...files];
+    if (!picked.length) return;
+    const useEnc = encBox.checked, password = pwInput.value;
+    if (useEnc && !password) {
+      setStatus("Enter a password first, or turn off encryption.", true);
+      input.value = "";
+      pwInput.focus();
+      return;
+    }
+    let ok = 0;
+    const failed = [];
+    for (const [i, file] of picked.entries()) {
+      setStatus(`Uploading ${file.name} (${i + 1} of ${picked.length})…`);
+      try {
+        if (file.size > MAX_BYTES) throw new Error("File is larger than 5 MB");
+        const fd = new FormData();
+        fd.append("folder", folder);
+        if (useEnc) {
+          const packed = await encryptBytes(new Uint8Array(await file.arrayBuffer()), password);
+          fd.append("file", new File([packed], file.name, { type: "application/octet-stream" }));
+          fd.append("encrypted", "1");
+        } else {
+          fd.append("file", file);
+        }
+        const res = await fetch("/api/upload", { method: "POST", body: fd });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}));
+          throw new Error(data.error || "Upload failed");
+        }
+        ok++;
+      } catch (e) {
+        failed.push(`${file.name}: ${e.message}`);
+      }
+    }
+    input.value = "";
+    if (failed.length) setStatus(failed.join(" | "), true);
+    else setStatus(ok === 1 ? "Uploaded 1 file." : `Uploaded ${ok} files.`);
+    renderList();
+  }
+
+  input.addEventListener("change", () => uploadFiles(input.files));
+  ["dragenter", "dragover"].forEach((t) =>
+    drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.add("over"); }));
+  ["dragleave", "drop"].forEach((t) =>
+    drop.addEventListener(t, (e) => { e.preventDefault(); drop.classList.remove("over"); }));
+  drop.addEventListener("drop", (e) => uploadFiles(e.dataTransfer.files));
+
+  // ---- Folders: the address decides which folder is shown ----
+  const FOLDER_RE = /^(_|[a-z0-9][a-z0-9_-]{0,63})$/;
+  const RESERVED = ["api", "view"];
+  const opts = $("opts"), listHead = $("listHead");
+  let folder = "_";
+  const validFolder = (f) => FOLDER_RE.test(f) && !RESERVED.includes(f);
+  function readFolder() {
+    let p = "";
+    try { p = decodeURIComponent(location.pathname); } catch { return "!"; }
+    p = p.replace(/^\/+|\/+$/g, "").toLowerCase();
+    return p === "" || p === "index.html" ? "_" : p;
+  }
+  function goTo(name) {
+    location.href = name === "_" ? "/" : "/" + encodeURIComponent(name);
+  }
+  function randomName() {
+    const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
+    return [...crypto.getRandomValues(new Uint8Array(16))].map((b) => chars[b % chars.length]).join("");
+  }
+  function applyFolder() {
+    const raw = readFolder();
+    const ok = validFolder(raw);
+    folder = ok ? raw : null;
+    $("folderLabel").textContent = !ok ? "Invalid folder name" : folder === "_" ? "Main vault" : "Private folder: " + folder;
+    $("folderNote").textContent = !ok
+      ? "Folder names use 1 to 64 letters, numbers, dashes or underscores."
+      : folder === "_"
+      ? "Everyone who opens this address sees these files. Open or create a private folder to keep files apart."
+      : "Only people who know this folder's name can find it, and anyone who knows it can add files. Use a long random name, and encrypt anything sensitive.";
+    $("rootLink").hidden = ok && folder === "_";
+    for (const el of [drop, opts, listHead, list]) el.hidden = !ok;
+    setStatus("");
+    if (ok) renderList();
+  }
+  function openTyped() {
+    const name = $("folderIn").value.trim().toLowerCase();
+    if (!name) return;
+    if (!validFolder(name)) { setStatus("Folder names use 1 to 64 letters, numbers, dashes or underscores.", true); return; }
+    goTo(name);
+  }
+  $("folderGo").addEventListener("click", openTyped);
+  $("folderIn").addEventListener("keydown", (e) => { if (e.key === "Enter") openTyped(); });
+  $("folderNew").addEventListener("click", () => goTo(randomName()));
+
+  applyFolder();
+</script>
+</body>
+</html>
