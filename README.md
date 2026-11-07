@@ -20,6 +20,8 @@ Upload any file (up to 5 MB), list it, open it in a new window. Optional passwor
 ## Removing files
 Each file has a **Remove** button (click twice to confirm). Anyone who can open a folder can remove its files, so treat a folder's path like a shared password. You can also delete entries in the Netlify dashboard or with `netlify blobs:delete pages <folder>/<id>`.
 
+Storage uses Netlify Blobs with strong consistency, so a file you remove or upload shows up in the list straight away.
+
 ## How file types are handled
 - HTML and SVG open as pages inside a sandbox.
 - PDFs, images, audio, video and plain-text types (txt, md, csv, json, ...) open in the browser.

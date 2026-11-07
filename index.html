@@ -313,6 +313,7 @@
     showBytes(item.name, bytes, w);
   }
 
+  const removed = new Set(); // ids removed in this session, hidden even if a list comes back stale
   async function removePage(item) {
     try {
       const res = await fetch("/api/delete", {
@@ -321,6 +322,7 @@
         body: JSON.stringify({ folder, id: item.id }),
       });
       if (!res.ok) throw new Error();
+      removed.add(item.id);
       setStatus("Removed " + item.name + ".");
     } catch {
       setStatus("That file could not be removed.", true);
@@ -341,7 +343,7 @@
     try {
       const res = await fetch("/api/list?folder=" + encodeURIComponent(folder));
       if (!res.ok) throw new Error();
-      items = await res.json();
+      items = (await res.json()).filter((i) => !removed.has(i.id));
     } catch { list.replaceChildren(emptyRow("The list could not be loaded. Refresh to try again.")); return; }
 
     items.sort((a, b) => String(b.uploadedAt).localeCompare(String(a.uploadedAt)));
