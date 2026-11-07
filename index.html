@@ -313,6 +313,29 @@
     showBytes(item.name, bytes, w);
   }
 
+  async function removePage(item) {
+    try {
+      const res = await fetch("/api/delete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ folder, id: item.id }),
+      });
+      if (!res.ok) throw new Error();
+      setStatus("Removed " + item.name + ".");
+    } catch {
+      setStatus("That file could not be removed.", true);
+    }
+    renderList();
+  }
+
+  // Two-step remove: the first click asks "Sure?", a second click within 3 seconds confirms.
+  function armRemove(btn, onConfirm) {
+    if (btn.dataset.armed) { onConfirm(); return; }
+    btn.dataset.armed = "1";
+    btn.textContent = "Sure?";
+    setTimeout(() => { delete btn.dataset.armed; btn.textContent = "Remove"; }, 3000);
+  }
+
   async function renderList() {
     let items;
     try {
@@ -346,7 +369,14 @@
       meta.textContent = [fmtSize(item.size), fmtDate(item.uploadedAt)].filter(Boolean).join("  |  ");
       open.append(name, meta);
 
-      li.append(open);
+      const rm = document.createElement("button");
+      rm.type = "button";
+      rm.className = "rm";
+      rm.textContent = "Remove";
+      rm.setAttribute("aria-label", "Remove " + item.name);
+      rm.addEventListener("click", () => armRemove(rm, () => removePage(item)));
+
+      li.append(open, rm);
       list.append(li);
     }
   }

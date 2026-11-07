@@ -17,6 +17,9 @@ Upload any file (up to 5 MB), list it, open it in a new window. Optional passwor
 - Names: 1 to 64 lowercase letters, numbers, dashes or underscores. `api` and `view` are reserved.
 - Files uploaded with an earlier version of this project (before folders) are not shown.
 
+## Removing files
+Each file has a **Remove** button (click twice to confirm). Anyone who can open a folder can remove its files, so treat a folder's path like a shared password. You can also delete entries in the Netlify dashboard or with `netlify blobs:delete pages <folder>/<id>`.
+
 ## How file types are handled
 - HTML and SVG open as pages inside a sandbox.
 - PDFs, images, audio, video and plain-text types (txt, md, csv, json, ...) open in the browser.
